@@ -1,3 +1,4 @@
+#uses fishnet
 import arcpy
 import os
 ##import multiprocessing
