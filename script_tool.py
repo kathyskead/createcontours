@@ -8,10 +8,10 @@ import time
 workspace = arcpy.GetParameterAsText(0)
 main_raster = arcpy.GetParameterAsText(1)
 buffer_dist = float(arcpy.GetParameterAsText(2))
-tolerance = arcpy.GetParameterAsText(3)
-##smoothing_method = arcpy.GetParameterAsText(4)
-number_columns = arcpy.GetParameterAsText(4)
-number_rows = arcpy.GetParameterAsText(5)
+smoothing_method = arcpy.GetParameterAsText(3)
+tolerance = arcpy.GetParameterAsText(4)
+number_columns = arcpy.GetParameterAsText(5)
+number_rows = arcpy.GetParameterAsText(6)
 
 
 
@@ -20,9 +20,11 @@ number_rows = arcpy.GetParameterAsText(5)
 ##main_raster = 'c:/Kent_Contour/test/raw_DEM/DEM.img'
 ###set buffer distance for tiles
 ##buffer_dist = 300
-###smooth line tolerance--this number is in the same units as the geometry of the feature being smoothed
+###smooth line tolerance--this number is in the same units as the geometry of the feature being smoothed. If
+### 'BEZIER_INTERPOLATION' is selected as smoothing method, set this to '0'
 ##tolerance = 15
-smoothing_method = 'PAEK'
+###set smoothing method: 'PAEK' or 'BEZIER_INTERPOLATION' 
+##smoothing_method = 'PAEK'
 
 
 #get DEM spatial ref and dimensions
@@ -46,7 +48,7 @@ error_output = os.path.join(workspace,'Topology_Errors')
 rule = 'Must Not Intersect (Line)'
 
 #fishnet variables
-outFeature = os.path.join(os.path.dirname(workspace),'fishnet.shp')
+fishnet_out = os.path.join(os.path.dirname(workspace),'fishnet.shp')
 origin_coord = '{0} {1}'.format(dem.extent.lowerLeft.X,dem.extent.lowerLeft.Y)
 y_coord = '{0} {1}'.format(dem.extent.lowerLeft.X,dem.extent.upperLeft.Y)
 cell_width = '0'
@@ -77,19 +79,18 @@ geometry_type = 'POLYGON'
 
 
 def create_fishnet(number_columns,number_rows):
-    arcpy.CreateFishnet_management(outFeature,origin_coord,y_coord,cell_width,
+    arcpy.CreateFishnet_management(fishnet_out,origin_coord,y_coord,cell_width,
                                    cell_height,number_rows,number_columns,opposite_corner_coord,
                                    labels,template,geometry_type)
-    arcpy.AddField_management(outFeature,'Name','TEXT')
-    with arcpy.da.UpdateCursor(outFeature,['OID@','Name']) as cursor:
+    arcpy.AddField_management(fishnet_out,'Name','TEXT')
+    with arcpy.da.UpdateCursor(fishnet_out,['OID@','Name']) as cursor:
         for oid,name in cursor:
             row = (oid,'Tile_{0:02d}'.format(oid))
             cursor.updateRow(row)
 
             
 def get_tile_names():
-    fishnet = outFeature
-    with arcpy.da.SearchCursor(fishnet,'Name') as rows:
+    with arcpy.da.SearchCursor(fishnet_out,'Name') as rows:
         name_list = []
         for row in rows:
             name_list.append(row[0])
@@ -99,8 +100,7 @@ def get_tile_names():
 
 
 def get_tiles():
-    fishnet = outFeature
-    with arcpy.da.SearchCursor(fishnet,['Name','SHAPE@']) as rows:
+    with arcpy.da.SearchCursor(fishnet_out,['Name','SHAPE@']) as rows:
         tile_dict = {}
         array = arcpy.Array()
         for row in rows:
@@ -117,8 +117,7 @@ def get_tiles():
     return tile_dict
     
 def get_buffered_tiles():
-    fishnet = outFeature
-    with arcpy.da.SearchCursor(fishnet,['Name','SHAPE@']) as rows:
+    with arcpy.da.SearchCursor(fishnet_out,['Name','SHAPE@']) as rows:
         tiles_buff = {}
         array = arcpy.Array()
         for row in rows:
@@ -138,7 +137,7 @@ def get_buffered_tiles():
 def fill_DEM(inras,name,tile):
     arcpy.env.extent = tile.extent
     outFill = arcpy.sa.Fill(inras)
-    outFill.save(os.path.join(dem_filled_out,'{0}.img'.format(name)))
+    outFill.save(os.path.join(dem_filled_out,name))
     
 
 def create_contours(inras,name,tile):
@@ -194,7 +193,7 @@ def trim_dangles(fc):
 def clip_fcs(name,fc):
 ##    arcpy.env.extent = arcpy.Describe(fc).extent
     clip_tiles_dict = get_tiles()
-    fc_name = 'Clip_{0}'.format(name)
+    fc_name = 'Final_{0}'.format(name)
     tile = clip_tiles_dict[name] 
     output = os.path.join(contours_final_out,fc_name)
     arcpy.Clip_analysis(fc,tile,output)
@@ -254,7 +253,7 @@ def main():
 
     #create fishnet tiles and get list of all tiles
     #get fishnet columns and rows
-    if not arcpy.Exists(outFeature):
+    if not arcpy.Exists(fishnet_out):
         arcpy.AddMessage('Creating fishnet...')
         create_fishnet(number_columns,number_rows)
 
@@ -356,7 +355,7 @@ def main():
 
 
 
-    arcpy.AddWarning('Final contour datasets successfully created.')
+    arcpy.AddMessage('Final contour datasets successfully created.')
     
 
     
@@ -366,7 +365,7 @@ if __name__ == '__main__':
     start_time = time.clock()
     main()
     end_time = time.clock()
-    arcpy.AddWarning('Main process is complete. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60))
+    arcpy.AddMessage('Main process is complete. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60))
 ##    end_time = time.clock()
 ##    print 'Main process encountered an error. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60)
 
