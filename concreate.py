@@ -78,6 +78,7 @@ geometry_type = 'POLYGON'
 
 
 def create_fishnet(number_columns,number_rows):
+    '''(number_columns,number_rows) -> output shapefile "fishnet.shp" '''
     arcpy.CreateFishnet_management(fishnet_out,origin_coord,y_coord,cell_width,
                                    cell_height,number_rows,number_columns,opposite_corner_coord,
                                    labels,template,geometry_type)
