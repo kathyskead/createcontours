@@ -408,9 +408,4 @@ if __name__ == '__main__':
 	arcpy.AddMessage('Main process is complete. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60))
 ##    end_time = time.clock()
 ##    print 'Main process encountered an error. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60)
-
-
-			
-		
-		
 	
