@@ -7,6 +7,7 @@ import list_datasets
 
 #TODO: make class for creating directories if they dont exist 
 #uses fishnet to process large contour dataset
+
 #get parameter inputs
 workspace = arcpy.GetParameterAsText(0)
 main_raster = arcpy.GetParameterAsText(1)
@@ -24,7 +25,21 @@ arcpy.AddMessage('Smoothing Tolerance: {0}'.format(tolerance))
 arcpy.AddMessage('Fishnet Columns: {0}'.format(number_columns))
 arcpy.AddMessage('Fishnet Rows: {0}'.format(number_rows))
 
+# This code was used in the script tool validation code. Deprecated, in favor of setting snap raster for the initial tile processing. 
+  # def updateParameters(self):
+    # """Modify the values and properties of parameters before internal
+    # validation is performed.  This method is called whenever a parameter
+    # has been changed."""
 
+    # dem = arcpy.sa.Raster(str(self.params[1].value))
+    # raster_height = int(dem.height.real)
+    # raster_width = int(dem.width.real) 
+    # rows_list = sorted(list((i for i in range(1,raster_height) if raster_height % i == 0)))
+    # columns_list = sorted(list((i for i in range(1,raster_width) if raster_width % i == 0)))
+    # self.params[5].filter.list = columns_list
+    # self.params[6].filter.list = rows_list
+    # del dem
+    # return
 
 ###stand-alone script variables
 ##workspace = 'c:/Kent_Contour/test/workspace/test.gdb'
@@ -155,6 +170,7 @@ def fill_DEM(inras,name,tile,output_dir):
 	Output: Returns output path string. 
 	'''
 	arcpy.env.extent = tile.extent
+	arcpy.env.snapRaster = inras
 	output = os.path.join(output_dir,name)
 	outFill = arcpy.sa.Fill(inras)
 	outFill.save(output)
@@ -169,6 +185,7 @@ def create_contours(inras,name,tile,output_dir):
 	Returns output path string.
 	'''
 	arcpy.env.extent = tile.extent
+	arcpy.env.snapRaster = inras 
 	output = os.path.join(output_dir,name)
 	arcpy.sa.Contour(inras,output,2,0)
 	return output
