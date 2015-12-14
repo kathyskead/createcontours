@@ -5,8 +5,6 @@ import itertools
 import time
 import list_datasets
 
-#TODO: make class for creating directories if they dont exist 
-#uses fishnet to process large contour dataset
 
 #get parameter inputs
 workspace = arcpy.GetParameterAsText(0)
@@ -16,6 +14,10 @@ smoothing_method = arcpy.GetParameterAsText(3)
 tolerance = arcpy.GetParameterAsText(4)
 number_columns = arcpy.GetParameterAsText(5)
 number_rows = arcpy.GetParameterAsText(6)
+
+if smoothing_method == 'BEZIER_INTERPOLATION':
+	tolerance = 0
+	
 #display inputs
 arcpy.AddMessage('Workspace geodatabase: {0}'.format(workspace))
 arcpy.AddMessage('Input DEM: {0}'.format(main_raster))
@@ -25,7 +27,10 @@ arcpy.AddMessage('Smoothing Tolerance: {0}'.format(tolerance))
 arcpy.AddMessage('Fishnet Columns: {0}'.format(number_columns))
 arcpy.AddMessage('Fishnet Rows: {0}'.format(number_rows))
 
-# This code was used in the script tool validation code. Deprecated, in favor of setting snap raster for the initial tile processing. 
+# This code was used in the script tool validation code to generate a list of numbers for fishnet columns and rows, 
+# which are multiples of the total height/width of the DEM, to ensure alignment of the tiles with the DEM. 
+# Deprecated, in favor of setting snap raster for initial tile processing. 
+
   # def updateParameters(self):
     # """Modify the values and properties of parameters before internal
     # validation is performed.  This method is called whenever a parameter
@@ -68,7 +73,7 @@ dem_filled_out = os.path.join(os.path.dirname(workspace),'dem_filled')
 contours_fill_out = os.path.join(workspace,'Contours_fill')
 contours_raw_out = os.path.join(workspace,'Contours_raw')
 contours_smooth_out = os.path.join(workspace,'Contours_smooth')
-contours_final_out = os.path.join(workspace,'Contours_final_clip')
+contours_final_out = os.path.join(workspace,'Contours_final')
 #set topology dataset and error output location
 topo_output = contours_final_out
 error_output = os.path.join(workspace,'Topology_Errors')
@@ -328,7 +333,7 @@ def main():
 	if not arcpy.Exists(contours_smooth_out):
 		arcpy.CreateFeatureDataset_management(workspace,'Contours_smooth',main_raster)
 	if not arcpy.Exists(contours_final_out):
-		arcpy.CreateFeatureDataset_management(workspace,'Contours_final_clip',main_raster)
+		arcpy.CreateFeatureDataset_management(workspace,'Contours_final',main_raster)
 	if not arcpy.Exists(error_output):
 		arcpy.CreateFeatureDataset_management(workspace,'Topology_Errors',main_raster)
 		
