@@ -6,6 +6,21 @@ import time
 import list_datasets
 
 
+###stand-alone script variables. This script can be used a stand-alone program by setting the following variables.
+##workspace = 'c:/Kent_Contour/test/workspace/test.gdb'
+##main_raster = 'c:/Kent_Contour/test/raw_DEM/DEM.img'
+###set buffer distance for tiles
+##buffer_dist = 225
+###smooth line tolerance--this number is in the same units as the geometry of the feature being smoothed. If
+### 'BEZIER_INTERPOLATION' is selected as smoothing method, set this to '0'
+##tolerance = 15
+###set smoothing method: 'PAEK' or 'BEZIER_INTERPOLATION' 
+##smoothing_method = 'PAEK'
+##
+###TODO:Implement console raw input for number of columns/rows (use updateParams code from script tool validation code)
+##number_columns = '6'
+##number_rows = '1'
+
 #get parameter inputs
 workspace = arcpy.GetParameterAsText(0)
 main_raster = arcpy.GetParameterAsText(1)
@@ -46,20 +61,6 @@ arcpy.AddMessage('Fishnet Rows: {0}'.format(number_rows))
     # del dem
     # return
 
-###stand-alone script variables
-##workspace = 'c:/Kent_Contour/test/workspace/test.gdb'
-##main_raster = 'c:/Kent_Contour/test/raw_DEM/DEM.img'
-###set buffer distance for tiles
-##buffer_dist = 225
-###smooth line tolerance--this number is in the same units as the geometry of the feature being smoothed. If
-### 'BEZIER_INTERPOLATION' is selected as smoothing method, set this to '0'
-##tolerance = 15
-###set smoothing method: 'PAEK' or 'BEZIER_INTERPOLATION' 
-##smoothing_method = 'PAEK'
-##
-###TODO:Implement console raw input for number of columns/rows (use updateParams code from script tool validation code)
-##number_columns = '6'
-##number_rows = '1'
 
 #get DEM spatial ref and dimensions
 dem = arcpy.sa.Raster(main_raster)
@@ -339,11 +340,12 @@ def main():
 		
 	#create fishnet tiles and get list of all tiles
 	#get fishnet columns and rows
-	if not arcpy.Exists(fishnet_out):
-		arcpy.AddMessage('Creating fishnet...')
-		create_fishnet(number_columns,number_rows)
+
+	arcpy.AddMessage('Creating fishnet...')
+	create_fishnet(number_columns,number_rows)
 
 	# initialize feature class lists
+	tiles_buff = get_buffered_tiles(fishnet_out,buffer_dist)
 	tiles_fill = []
 	contour_fcs = []
 	contour_fill = []
@@ -354,11 +356,9 @@ def main():
   
 	#execute fill
 	arcpy.AddMessage('Creating filled DEM tiles...')
-	tiles_buff = get_buffered_tiles(fishnet_out,buffer_dist)
 	for name,tile in tiles_buff.iteritems():
 		tiles_fill.append(fill_DEM(main_raster,name,tile,dem_filled_out))
 	tiles_fill.sort()
-	
 	
 	#execute contour creation
 	arcpy.AddMessage('Creating contour features...' )  
