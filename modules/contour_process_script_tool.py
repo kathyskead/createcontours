@@ -14,7 +14,7 @@ import list_datasets
 ###smooth line tolerance--this number is in the same units as the geometry of the feature being smoothed. If
 ### 'BEZIER_INTERPOLATION' is selected as smoothing method, set this to '0'
 ##tolerance = 15
-###set smoothing method: 'PAEK' or 'BEZIER_INTERPOLATION' 
+###set smoothing method: 'PAEK' or 'BEZIER_INTERPOLATION'
 ##smoothing_method = 'PAEK'
 ##
 ###TODO:Implement console raw input for number of columns/rows (use updateParams code from script tool validation code)
@@ -32,7 +32,7 @@ number_rows = arcpy.GetParameterAsText(6)
 
 if smoothing_method == 'BEZIER_INTERPOLATION':
 	tolerance = 0
-	
+
 #display inputs
 arcpy.AddMessage('Workspace geodatabase: {0}'.format(workspace))
 arcpy.AddMessage('Input DEM: {0}'.format(main_raster))
@@ -42,9 +42,9 @@ arcpy.AddMessage('Smoothing Tolerance: {0}'.format(tolerance))
 arcpy.AddMessage('Fishnet Columns: {0}'.format(number_columns))
 arcpy.AddMessage('Fishnet Rows: {0}'.format(number_rows))
 
-# This code was used in the script tool validation code to generate a list of numbers for fishnet columns and rows, 
-# which are multiples of the total height/width of the DEM, to ensure alignment of the tiles with the DEM. 
-# Deprecated, in favor of setting snap raster for initial tile processing. 
+# This code was used in the script tool validation code to generate a list of numbers for fishnet columns and rows,
+# which are multiples of the total height/width of the DEM, to ensure alignment of the tiles with the DEM.
+# Deprecated, in favor of setting snap raster for initial tile processing.
 
   # def updateParameters(self):
     # """Modify the values and properties of parameters before internal
@@ -53,7 +53,7 @@ arcpy.AddMessage('Fishnet Rows: {0}'.format(number_rows))
 
     # dem = arcpy.sa.Raster(str(self.params[1].value))
     # raster_height = int(dem.height.real)
-    # raster_width = int(dem.width.real) 
+    # raster_width = int(dem.width.real)
     # rows_list = sorted(list((i for i in range(1,raster_height) if raster_height % i == 0)))
     # columns_list = sorted(list((i for i in range(1,raster_width) if raster_width % i == 0)))
     # self.params[5].filter.list = columns_list
@@ -92,7 +92,7 @@ cell_height = '0'
 ##number_columns = ''
 opposite_corner_coord = '{0} {1}'.format(dem.extent.upperRight.X,dem.extent.upperRight.Y)
 labels = 'NO_LABELS'
-#extent is set by origin and opposite corner coords -- no need to use template 
+#extent is set by origin and opposite corner coords -- no need to use template
 template = '#'
 geometry_type = 'POLYGON'
 
@@ -116,14 +116,27 @@ def create_fishnet(number_columns,number_rows):
 			cursor.updateRow(row)
 	return fishnet_out
 
-			
+
+def get_footprint(inras):
+        arcpy.RasterDomain_3d(inras,"in_memory","POLYGON")
+        extent = arcpy.Describe(output).extent
+        array = arcpy.Array()
+        array.add(extent.lowerLeft)
+        array.add(extent.lowerRight)
+        array.add(extent.upperRight)
+        array.add(extent.upperLeft)
+        footprint = arcpy.Polygon(array)
+        return footprint
+
+
+
 
 def get_final_tiles(fishnet_out):
 	'''(full path to fishnet shapefile)-> dict
 	Input: Fishnet feature class.
-	Iterates over each feature in the the feature class, creating temporary 
+	Iterates over each feature in the the feature class, creating temporary
 	polygon objects with extents equal to each feature extent. These will be used as final
-	processing extents for clipping the buffered tiles. 
+	processing extents for clipping the buffered tiles.
 	Output: Dict with tile names as keys and polygon objects as values.
 	'''
 	with arcpy.da.SearchCursor(fishnet_out,['Name','SHAPE@']) as rows:
@@ -140,15 +153,15 @@ def get_final_tiles(fishnet_out):
 			array.removeAll()
 			del row
 		del array
-	return tile_dict
-	
+	return sorted(tile_dict)
+
 def get_buffered_tiles(fishnet_out,buffer_dist):
 	''' (full path to fishnet shapefile,int) -> dict
-	Input: Takes full path string to fishnet shapefile and an integer value 
-	representing the buffer distance. This value is a linear unit. 
+	Input: Takes full path string to fishnet shapefile and an integer value
+	representing the buffer distance. This value is a linear unit.
 	Identical to get_final_tiles, but with a buffer. These temporary polygon objects
 	will be used for processing.
-	Output: Returns a dict with tile names as keys and buffered polygon objects as values.	
+	Output: Returns a dict with tile names as keys and buffered polygon objects as values.
 	'''
 	with arcpy.da.SearchCursor(fishnet_out,['Name','SHAPE@']) as rows:
 		tiles_buff = {}
@@ -164,16 +177,16 @@ def get_buffered_tiles(fishnet_out,buffer_dist):
 			array.removeAll()
 			del row
 		del array
-	return tiles_buff
-		
-	
+	return sorted(tiles_buff)
+
+
 def fill_DEM(inras,name,tile,output_dir):
 	'''(raster,string,polygon object,path string) -> output path string
 	Input: Takes a raster dataset and polygon object.
-	Sets processing extent to the polygon extent. 
+	Sets processing extent to the polygon extent.
 	Executes Fill geoprocess on the raster dataset.
 	Saves output.
-	Output: Returns output path string. 
+	Output: Returns output path string.
 	'''
 	arcpy.env.extent = tile.extent
 	arcpy.env.snapRaster = inras
@@ -181,47 +194,47 @@ def fill_DEM(inras,name,tile,output_dir):
 	outFill = arcpy.sa.Fill(inras)
 	outFill.save(output)
 	return output
-	
+
 
 def create_contours(inras,name,tile,output_dir):
 	''' (raster,string,polygon object,path string)->output path string
 	Sets processing extent to polygon object extent.
 	Executes Contour geoprocess on raster dataset.
-	Saves output according to name and output_dir parameters. 
+	Saves output according to name and output_dir parameters.
 	Returns output path string.
 	'''
 	arcpy.env.extent = tile.extent
-	arcpy.env.snapRaster = inras 
+	arcpy.env.snapRaster = inras
 	output = os.path.join(output_dir,name)
 	arcpy.sa.Contour(inras,output,2,0)
 	return output
 
 def create_filled_contours(inras,output_dir):
 	''' (raster,path string) -> output path string
-	Executes Contour geoprocess on raster dataset. 
+	Executes Contour geoprocess on raster dataset.
 	Outputs shapefile with prefix "Fill" according to the name of the input raster and output_dir parameter.
-	Returns output path string.	
+	Returns output path string.
 	'''
 ##    arcpy.env.extent = arcpy.sa.Raster(inras).extent
 	name = 'Fill_{0}'.format(os.path.splitext(os.path.basename(inras))[0])
 	output = os.path.join(output_dir,name)
 	arcpy.sa.Contour(inras,output,2,0)
 	return output
-	
+
 
 def att_contours(fc,filled):
-	''' (feature class, feature class) -> None 
+	''' (feature class, feature class) -> None
 	Updates attribute table and deletes features less than 100 in length.
-	Attributes each feature with contour type: Intermediate,Index,Depression. 
+	Attributes each feature with contour type: Intermediate,Index,Depression.
 	Gets depression contour type by selecting all contours which do not intersect the
 	filled contours. These are the depression contours.
-	Returns none.	
+	Returns none.
 	'''
 ##    arcpy.env.extent = arcpy.Describe(fc).extent
 	expression = 'getType(!Contour!,!Type!)'
 	codeblock = """def getType(con,typ):
 		if con % 10 == 0 and typ == 'Depression':
-			return 'Index_Depression'      
+			return 'Index_Depression'
 		elif con % 10 == 0 and typ != 'Depression':
 			return 'Index'
 		elif con % 10 != 0 and typ == 'Depression':
@@ -238,9 +251,9 @@ def att_contours(fc,filled):
 	arcpy.CalculateField_management('contour_lyr','Type','"Depression"','PYTHON_9.3')
 	arcpy.SelectLayerByAttribute_management('contour_lyr','CLEAR_SELECTION')
 	arcpy.CalculateField_management('contour_lyr','Type',expression,'PYTHON_9.3',codeblock)
-	return None 
+	return None
 
- 
+
 
 def smooth_lines(fc,output_dir):
 	'''(feature class,path string)-> output path string
@@ -255,12 +268,12 @@ def smooth_lines(fc,output_dir):
 	arcpy.cartography.SmoothLine(fc,output,smoothing_method,tolerance)
 	return output
 
-# currently not working as intended. does not trim line segments at all. 
+# currently not working as intended. does not trim line segments at all.
 def trim_dangles(fc):
-	with arcpy.da.Editor(workspace) as edit: 
+	with arcpy.da.Editor(workspace) as edit:
 	##    arcpy.env.extent = arcpy.Describe(fc).extent
 		arcpy.TrimLine_edit(fc,'10 Feet','DELETE_SHORT')
-		
+
 
 
 def clip_fcs(fc,clip_fc,name,output_dir):
@@ -281,7 +294,7 @@ def create_topology(fc,topo_output,rule,error_output):
 	'''(feature class,topology output location,topology rule,topology error output location)-> error output location
 	Creates a topology in topo_output. Adds fc to newly created topology.
 	Adds rule to topology. Validates topology. Exports topology errors to error_output.
-	Returns error_output string.	
+	Returns error_output string.
 	'''
 	toponame = '{0}_topo'.format(os.path.basename(fc))
 	topo_path = os.path.join(topo_output,toponame)
@@ -291,13 +304,13 @@ def create_topology(fc,topo_output,rule,error_output):
 	arcpy.ValidateTopology_management(topo_path)
 	arcpy.ExportTopologyErrors_management(topo_path,error_output,'{0}_errors'.format(os.path.basename(fc)))
 	return error_output
-	
-  
+
+
 def get_total_errors(point_errors,line_errors,error_output):
 	'''(list of feature classes,list of feature classes,topology error location)-> None
 	Merges all point error features into a single feature class. Repeats for line errors.
 	Counts total number of errors for each feature class.
-	Appends the total to the name of each feature class. 
+	Appends the total to the name of each feature class.
 	Returns tuple of (total point errors, total line errors)
 	'''
 	total_line_errors = os.path.join(error_output,'All_Line_Errors')
@@ -309,7 +322,7 @@ def get_total_errors(point_errors,line_errors,error_output):
 	arcpy.Rename_management(total_line_errors,'{0}_{1}'.format(total_line_errors,line_count))
 	arcpy.Rename_management(total_point_errors,'{0}_{1}'.format(total_point_errors,point_count))
 	return (point_count,line_count)
-	
+
 
 def main():
 	#set workspace
@@ -320,7 +333,7 @@ def main():
 	arcpy.env.overwriteOutput = True
 	#check out spatial analyst extension
 	arcpy.CheckOutExtension("Spatial")
-	
+
 	#make all needed directories and datasets
 	arcpy.AddMessage('Creating directories...')
 	if not arcpy.Exists(dem_filled_out):
@@ -337,14 +350,17 @@ def main():
 		arcpy.CreateFeatureDataset_management(workspace,'Contours_final',main_raster)
 	if not arcpy.Exists(error_output):
 		arcpy.CreateFeatureDataset_management(workspace,'Topology_Errors',main_raster)
-		
+
 	#create fishnet tiles and get list of all tiles
 	#get fishnet columns and rows
 
 	arcpy.AddMessage('Creating fishnet...')
 	create_fishnet(number_columns,number_rows)
 
+
+
 	# initialize feature class lists
+	tiles = get_final_tiles(fishnet_out)
 	tiles_buff = get_buffered_tiles(fishnet_out,buffer_dist)
 	tiles_fill = []
 	contour_fcs = []
@@ -353,16 +369,29 @@ def main():
 	contour_final = []
 	point_errors = []
 	line_errors = []
-  
+
+        # ensure each tile will mask at least a portion of the data. if not, delete it
+
+	arcoy.AddMessage('Checking fishnet coverage...')
+        try:
+                footprint = get_footprint(main_raster)
+        except Exception as e:
+                print "Footprint generation not successful", e
+        else:
+                for tile in tiles:
+                        if not tiles[tile].overlaps(footprint):
+                                tiles.pop(tile,None)
+                                tiles_buff.pop(tile,None)
+                                
 	#execute fill
 	arcpy.AddMessage('Creating filled DEM tiles...')
 	for name,tile in tiles_buff.iteritems():
 		tiles_fill.append(fill_DEM(main_raster,name,tile,dem_filled_out))
 	tiles_fill.sort()
-	
+
 	#execute contour creation
-	arcpy.AddMessage('Creating contour features...' )  
-	for name,tile in tiles_buff.iteritems(): 
+	arcpy.AddMessage('Creating contour features...' )
+	for name,tile in tiles_buff.iteritems():
 		contour_fcs.append(create_contours(main_raster,name,tile,contours_raw_out))
 	contour_fcs.sort()
 	time.sleep(1)
@@ -371,13 +400,13 @@ def main():
 
 	#reset processing extent to full dataset
 	arcpy.env.extent = dem.extent
-	
+
 	#execute filled contour creation
 	arcpy.AddMessage('Creating filled contour features...')
 	for inras in tiles_fill:
 		contour_fill.append(create_filled_contours(inras,contours_fill_out))
 	contour_fill.sort()
-	
+
 
 	#execute attribute update
 	arcpy.AddMessage('Deleting short contours and updating attribute table with index, intermediate and depression values...')
@@ -391,9 +420,9 @@ def main():
 		contour_smooth.append(smooth_lines(fc,contours_smooth_out))
 	contour_smooth.sort()
 
-	
+
 	#create dictionary joining tile names to features, and execute final clip
-	contour_dict = {i:k for i,k in itertools.izip(sorted(get_final_tiles(fishnet_out)),contour_smooth)}
+	contour_dict = {i:k for i,k in itertools.izip(tiles,contour_smooth)}
 	clip_tiles_dict = get_final_tiles(fishnet_out)
 	arcpy.AddMessage('Executing final clip to remove edge effects...')
 	for name in contour_dict:
@@ -401,7 +430,7 @@ def main():
 		clip_fc = clip_tiles_dict[name]
 		contour_final.append(clip_fcs(fc,clip_fc,name,contours_final_out))
 
-##    #execute trim dangles 
+##    #execute trim dangles
 ##    #TODO: Trim line encountered error "Invalid Topology". Possibly memory issue, or need to run "Check/Repair Geometry"
 ##    print 'Executing trim line to remove dangles...'
 ##    for fc in contour_final:
@@ -420,9 +449,9 @@ def main():
 	arcpy.AddMessage('Total topology errors: {0} point errors, {1} line errors'.format(point_total,line_total))
 
 	arcpy.AddMessage('Final contour datasets successfully created.')
-	
 
-	
+
+
 if __name__ == '__main__':
 	start_time = time.clock()
 	main()
@@ -430,4 +459,4 @@ if __name__ == '__main__':
 	arcpy.AddMessage('Main process is complete. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60))
 ##    end_time = time.clock()
 ##    print 'Main process encountered an error. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60)
-	
+
