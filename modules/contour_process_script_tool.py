@@ -7,31 +7,31 @@ import list_datasets
 
 
 ###stand-alone script variables. This script can be used a stand-alone program by setting the following variables.
-##workspace = 'c:/Kent_Contour/test/workspace/test.gdb'
-##main_raster = 'c:/Kent_Contour/test/raw_DEM/DEM.img'
-###set buffer distance for tiles
-##buffer_dist = 225
-###smooth line tolerance--this number is in the same units as the geometry of the feature being smoothed. If
-### 'BEZIER_INTERPOLATION' is selected as smoothing method, set this to '0'
-##tolerance = 15
-###set smoothing method: 'PAEK' or 'BEZIER_INTERPOLATION'
-##smoothing_method = 'PAEK'
-##
-###TODO:Implement console raw input for number of columns/rows (use updateParams code from script tool validation code)
-##number_columns = '6'
-##number_rows = '1'
+workspace = r'C:\Users\patrizio\Projects\Contouring\Test\test_workspace.gdb'
+main_raster = r'C:\Users\patrizio\Projects\Contouring\Test\DEM\DEM_test.tif'
+#set buffer distance for tiles
+buffer_dist = 100
+#smooth line tolerance--this number is in the same units as the geometry of the feature being smoothed. If
+# 'BEZIER_INTERPOLATION' is selected as smoothing method, set this to '0'
+tolerance = 15
+#set smoothing method: 'PAEK' or 'BEZIER_INTERPOLATION'
+smoothing_method = 'PAEK'
+
+#TODO:Implement console raw input for number of columns/rows (use updateParams code from script tool validation code)
+number_columns = '6'
+number_rows = '1'
 
 #get parameter inputs
-workspace = arcpy.GetParameterAsText(0)
-main_raster = arcpy.GetParameterAsText(1)
-buffer_dist = float(arcpy.GetParameterAsText(2))
-smoothing_method = arcpy.GetParameterAsText(3)
-tolerance = arcpy.GetParameterAsText(4)
-number_columns = arcpy.GetParameterAsText(5)
-number_rows = arcpy.GetParameterAsText(6)
-
-if smoothing_method == 'BEZIER_INTERPOLATION':
-    tolerance = 0
+##workspace = arcpy.GetParameterAsText(0)
+##main_raster = arcpy.GetParameterAsText(1)
+##buffer_dist = float(arcpy.GetParameterAsText(2))
+##smoothing_method = arcpy.GetParameterAsText(3)
+##tolerance = arcpy.GetParameterAsText(4)
+##number_columns = arcpy.GetParameterAsText(5)
+##number_rows = arcpy.GetParameterAsText(6)
+##
+##if smoothing_method == 'BEZIER_INTERPOLATION':
+##    tolerance = 0
 
 #display inputs
 arcpy.AddMessage('Workspace geodatabase: {0}'.format(workspace))
@@ -243,14 +243,23 @@ def att_contours(fc,filled):
             return 'Intermediate'"""
     arcpy.MakeFeatureLayer_management(fc,'contour_lyr')
 ##    arcpy.CalculateField_management('contour_lyr','Length','!shape.length@feet!','PYTHON')
+    print "Selecting contours less than 100"
     arcpy.SelectLayerByAttribute_management('contour_lyr','NEW_SELECTION','Shape_Length < 100')
+    print "Deleting..."
     arcpy.DeleteFeatures_management('contour_lyr')
+    print "Clear selection"
     arcpy.SelectLayerByAttribute_management('contour_lyr','CLEAR_SELECTION')
+    print "Select contours that intersect filled contours"
     arcpy.SelectLayerByLocation_management('contour_lyr','INTERSECT',filled,'','NEW_SELECTION')
+    print "Switch selection"
     arcpy.SelectLayerByAttribute_management('contour_lyr','SWITCH_SELECTION')
+    print "Calculate field for those contours as Depression"
     arcpy.CalculateField_management('contour_lyr','Type','"Depression"','PYTHON_9.3')
+    print "Clear selection"
     arcpy.SelectLayerByAttribute_management('contour_lyr','CLEAR_SELECTION')
+    print "Claculate field to attribute contour types"
     arcpy.CalculateField_management('contour_lyr','Type',expression,'PYTHON_9.3',codeblock)
+    arcpy.Delete_management('contour_lyr')
     return None
 
 
@@ -485,11 +494,11 @@ def main():
 
 
 
-if __name__ == '__main__':
-    start_time = time.clock()
-    main()
-    end_time = time.clock()
-    arcpy.AddMessage('Main process is complete. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60))
+##if __name__ == '__main__':
+##    start_time = time.clock()
+##    main()
+##    end_time = time.clock()
+##    arcpy.AddMessage('Main process is complete. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60))
 ##    end_time = time.clock()
 ##    print 'Main process encountered an error. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60)
 
