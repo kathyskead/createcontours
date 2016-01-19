@@ -1,5 +1,7 @@
 import arcpy
 import os
+import sys
+import shutil
 ##import multiprocessing
 import itertools
 import time
@@ -7,33 +9,34 @@ import list_datasets
 
 
 ###stand-alone script variables. This script can be used a stand-alone program by setting the following variables.
-workspace = r'C:\Users\patrizio\Projects\Contouring\Test\test_workspace.gdb'
-main_raster = r'C:\Users\patrizio\Projects\Contouring\Test\DEM\DEM_test.tif'
-#set buffer distance for tiles
-buffer_dist = 100
-#smooth line tolerance--this number is in the same units as the geometry of the feature being smoothed. If
-# 'BEZIER_INTERPOLATION' is selected as smoothing method, set this to '0'
-tolerance = 15
-#set smoothing method: 'PAEK' or 'BEZIER_INTERPOLATION'
-smoothing_method = 'PAEK'
-
-#TODO:Implement console raw input for number of columns/rows (use updateParams code from script tool validation code)
-number_columns = '6'
-number_rows = '1'
+##workspace = r'C:\Users\patrizio\Projects\Contouring\Test\test_workspace.gdb'
+##main_raster = r'C:\Users\patrizio\Projects\Contouring\Test\DEM\DEM_test.tif'
+###set buffer distance for tiles
+##buffer_dist = 100
+###smooth line tolerance--this number is in the same units as the geometry of the feature being smoothed. If
+### 'BEZIER_INTERPOLATION' is selected as smoothing method, set this to '0'
+##tolerance = 15
+###set smoothing method: 'PAEK' or 'BEZIER_INTERPOLATION'
+##smoothing_method = 'PAEK'
+##
+###TODO:Implement console raw input for number of columns/rows (use updateParams code from script tool validation code)
+##number_columns = '6'
+##number_rows = '1'
 
 #get parameter inputs
-##workspace = arcpy.GetParameterAsText(0)
-##main_raster = arcpy.GetParameterAsText(1)
-##buffer_dist = float(arcpy.GetParameterAsText(2))
-##smoothing_method = arcpy.GetParameterAsText(3)
-##tolerance = arcpy.GetParameterAsText(4)
-##number_columns = arcpy.GetParameterAsText(5)
-##number_rows = arcpy.GetParameterAsText(6)
-##
-##if smoothing_method == 'BEZIER_INTERPOLATION':
-##    tolerance = 0
+workspace = arcpy.GetParameterAsText(0)
+main_raster = arcpy.GetParameterAsText(1)
+buffer_dist = float(arcpy.GetParameterAsText(2))
+smoothing_method = arcpy.GetParameterAsText(3)
+tolerance = arcpy.GetParameterAsText(4)
+number_columns = arcpy.GetParameterAsText(5)
+number_rows = arcpy.GetParameterAsText(6)
+
+if smoothing_method == 'BEZIER_INTERPOLATION':
+    tolerance = 0
 
 #display inputs
+arcpy.AddMessage('System version: {0}'.format(sys.version))
 arcpy.AddMessage('Workspace geodatabase: {0}'.format(workspace))
 arcpy.AddMessage('Input DEM: {0}'.format(main_raster))
 arcpy.AddMessage('Processing Buffer: {0}'.format(buffer_dist))
@@ -345,20 +348,26 @@ def main():
 
     #make all needed directories and datasets
     arcpy.AddMessage('Creating directories...')
-    if not arcpy.Exists(dem_filled_out):
-        os.mkdir(dem_filled_out)
+    if arcpy.Exists(dem_filled_out):
+        shutil.rmtree(dem_filled_out)
+    os.mkdir(dem_filled_out)
 ##    os.mkdir('{0}/dem_tiles'.format(os.path.split(workspace)[0]))
 ##    os.mkdir('{0}/dem_tiles_buff'.format(os.path.split(workspace)[0]))
-    if not arcpy.Exists(contours_raw_out):
-        arcpy.CreateFeatureDataset_management(workspace,'Contours_raw',main_raster)
-    if not arcpy.Exists(contours_fill_out):
-        arcpy.CreateFeatureDataset_management(workspace,'Contours_fill',main_raster)
-    if not arcpy.Exists(contours_smooth_out):
-        arcpy.CreateFeatureDataset_management(workspace,'Contours_smooth',main_raster)
-    if not arcpy.Exists(contours_final_out):
-        arcpy.CreateFeatureDataset_management(workspace,'Contours_final',main_raster)
-    if not arcpy.Exists(error_output):
-        arcpy.CreateFeatureDataset_management(workspace,'Topology_Errors',main_raster)
+    if arcpy.Exists(contours_raw_out):
+        arcpy.Delete_management(contours_raw_out)
+    arcpy.CreateFeatureDataset_management(workspace,'Contours_raw',main_raster)
+    if arcpy.Exists(contours_fill_out):
+        arcpy.Delete_management(contours_fill_out)
+    arcpy.CreateFeatureDataset_management(workspace,'Contours_fill',main_raster)
+    if arcpy.Exists(contours_smooth_out):
+        arcpy.Delete_management(contours_smooth_out)
+    arcpy.CreateFeatureDataset_management(workspace,'Contours_smooth',main_raster)
+    if arcpy.Exists(contours_final_out):
+        arcpy.Delete_management(contours_final_out)
+    arcpy.CreateFeatureDataset_management(workspace,'Contours_final',main_raster)
+    if arcpy.Exists(error_output):
+        arcpy.Delete_management(error_output)
+    arcpy.CreateFeatureDataset_management(workspace,'Topology_Errors',main_raster)
 
     #create fishnet tiles and get list of all tiles
     #get fishnet columns and rows
@@ -494,11 +503,10 @@ def main():
 
 
 
-##if __name__ == '__main__':
-##    start_time = time.clock()
-##    main()
-##    end_time = time.clock()
-##    arcpy.AddMessage('Main process is complete. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60))
-##    end_time = time.clock()
-##    print 'Main process encountered an error. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60)
+if __name__ == '__main__':
+    start_time = time.clock()
+    main()
+    end_time = time.clock()
+    arcpy.AddMessage('Main process is complete. Time elapsed: {0:.2f} minutes'.format((end_time - start_time)/60))
+    end_time = time.clock()
 
