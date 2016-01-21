@@ -74,9 +74,9 @@ spatial_ref = dem.extent.spatialReference.factoryCode
 
 #output directories and datasets
 dem_filled_out = os.path.join(os.path.dirname(workspace),'dem_filled')
-contours_fill_out = os.path.join(workspace,'Contours_fill')
-contours_raw_out = os.path.join(workspace,'Contours_raw')
-contours_smooth_out = os.path.join(workspace,'Contours_smooth')
+contours_fill_out = "in_memory"
+contours_raw_out = "in_memory"
+contours_smooth_out = "in_memory"
 contours_final_out = os.path.join(workspace,'Contours_final')
 #set topology dataset and error output location
 topo_output = contours_final_out
@@ -246,21 +246,21 @@ def att_contours(fc,filled):
             return 'Intermediate'"""
     arcpy.MakeFeatureLayer_management(fc,'contour_lyr')
 ##    arcpy.CalculateField_management('contour_lyr','Length','!shape.length@feet!','PYTHON')
-    print "Selecting contours less than 100"
+    arcpy.AddMessage("Selecting contours for {0} less than 100".format(fc))
     arcpy.SelectLayerByAttribute_management('contour_lyr','NEW_SELECTION','Shape_Length < 100')
-    print "Deleting..."
+    arcpy.AddMessage("Deleting...")
     arcpy.DeleteFeatures_management('contour_lyr')
-    print "Clear selection"
+    arcpy.AddMessage("Clear selection")
     arcpy.SelectLayerByAttribute_management('contour_lyr','CLEAR_SELECTION')
-    print "Select contours that intersect filled contours"
+    arcpy.AddMessage("Select contours that intersect filled contours")
     arcpy.SelectLayerByLocation_management('contour_lyr','INTERSECT',filled,'','NEW_SELECTION')
-    print "Switch selection"
+    arcpy.AddMessage("Switch selection")
     arcpy.SelectLayerByAttribute_management('contour_lyr','SWITCH_SELECTION')
-    print "Calculate field for those contours as Depression"
+    arcpy.AddMessage("Calculate field for those contours as Depression")
     arcpy.CalculateField_management('contour_lyr','Type','"Depression"','PYTHON_9.3')
-    print "Clear selection"
+    arcpy.AddMessage("Clear selection")
     arcpy.SelectLayerByAttribute_management('contour_lyr','CLEAR_SELECTION')
-    print "Claculate field to attribute contour types"
+    arcpy.AddMessage("Claculate field to attribute contour types")
     arcpy.CalculateField_management('contour_lyr','Type',expression,'PYTHON_9.3',codeblock)
     arcpy.Delete_management('contour_lyr')
     return None
@@ -452,7 +452,11 @@ def main():
             att_contours(fc,fill)
         except Exception as e:
             arcpy.AddWarning("Encountered problem while updating attribute table: {0}".format(e))
-            continue
+            raise sys.exit(0)
+
+    # clear filled contours from in_memory workspace
+    for fc in contour_fill:
+        arcpy.Delete_management(fc)
     
     #execute smooth lines
     arcpy.AddMessage('Smoothing contours...')
@@ -464,7 +468,10 @@ def main():
             continue
     contour_smooth.sort()
 
-
+    # clear raw contours from in memory workspace
+    for fc in contour_fcs:
+        arcpy.Delete_management(fc)
+        
     #create dictionary joining tile names to features, and execute final clip
     contour_dict = {i:k for i,k in itertools.izip(sorted(tiles),contour_smooth)}
     arcpy.AddMessage('Executing final clip to remove edge effects...')
@@ -482,6 +489,9 @@ def main():
 ##    print 'Executing trim line to remove dangles...'
 ##    for fc in contour_final:
 ##        trim_dangles(fc)
+
+    # clear in_memory workspace
+    arcpy.Delete_management("in_memory")
 
     #run topology and export errors
     arcpy.AddMessage('Creating topology and validating...')
