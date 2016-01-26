@@ -81,6 +81,7 @@ contours_smooth_out = "in_memory"
 contours_final_out = os.path.join(workspace,'Contours_final')
 #set topology dataset and error output location
 topo_output = contours_final_out
+##error_output = "in_memory"
 error_output = os.path.join(workspace,'Topology_Errors')
 
 # set topology rule
@@ -398,104 +399,101 @@ def main():
     line_errors = []
 
                 
-    try:    
-        for name,tile in tiles_buff.iteritems():
-            arcpy.AddMessage("Beginning contour processing on {0}...".format(name))
-            #execute fill
-            arcpy.AddMessage('Creating filled DEM tile...')
-            try:
-                dem_fill = fill_DEM(main_raster,name,tile,dem_filled_out)
-            except Exception as e:
-                arcpy.AddWarning("Encountered error while filling DEM: {0}".format(e))
-                raise e
-                continue
-            
-            #reset processing extent to full dataset
-            arcpy.env.extent = dem.extent
-            
-            #execute filled contour creation
-            arcpy.AddMessage('Creating filled contours...')
-            try:
-                contour_fill = create_filled_contours(dem_fill,contours_fill_out)
-            except Exception as e:
-                arcpy.AddWarning('Encountered problem with raster dataset: {0}'.format(e))
-                raise e
-                continue
-
-            #execute contour creation
-            arcpy.AddMessage('Creating normal contours...' )
-            try:
-                contour_raw = create_contours(main_raster,name,tile,contours_raw_out)
-            except Exception as e:
-                arcpy.AddWarning("Encountered error while creating normal contours: {0}".format(e))
-                raise e
-                continue
-            
-            # add contour type field
-            try:
-                arcpy.AddField_management(contour_raw,'Type','TEXT')
-            except Exception as e:
-                arcpy.AddWarning("Encountered error adding new field to contour feature class: {0}".format(e))
-                raise e
-                continue
-
-            #reset processing extent to full dataset
-            arcpy.env.extent = dem.extent
-
-            #execute attribute update
-            arcpy.AddMessage('Deleting short contours and updating attribute table with index, intermediate and depression values...')
-            try:
-                att_contours(contour_raw,contour_fill)
-            except Exception as e:
-                arcpy.AddWarning("Encountered problem while updating attribute table: {0}".format(e))
-                raise e
-                continue
-
-            #execute smooth lines
-            arcpy.AddMessage('Smoothing contours...')
-            try:
-                contour_smoothed = smooth_lines(contour_raw,contours_smooth_out)
-            except Exception as e:
-                arcpy.AddWarning("Encountered problem while smoothing contours: {0}".format(e))
-                raise e
-                continue
-
-            # execute final clip
-            arcpy.AddMessage('Executing final clip to remove edge effects...')
-            clip_fc = tiles[name]
-            try:
-                contour_clipped = clip_fcs(contour_smoothed,clip_fc,name,contours_final_out)
-            except Exception as e:
-                arcpy.AddWarning("Encountered error while clipping: {0}".format(e))
-                raise e
-                continue
-
-            # clear in_memory workspace
-            arcpy.Delete_management("in_memory")
-
-            #run topology and export errors
-            arcpy.AddMessage('Creating topology and validating...')
-            try:
-                create_topology(contour_clipped,topo_output,rule,error_output)
-            except Exception as e:
-                arcpy.AddWarning("Encountered error while creating topology: {0}".format(e))
-                raise e
-                continue
-
-        #merge errors, and get total error count
+##    try:    
+    for name,tile in tiles_buff.iteritems():
+        arcpy.AddMessage("Beginning contour processing on {0}...".format(name))
+        #execute fill using buffered tile as processing extent
+        arcpy.AddMessage('Creating filled DEM tile...')
         try:
-            arcpy.AddMessage('Merging point errors and getting total count...')
-            point_errors = list_datasets.list_datasets(error_output,datatype='FeatureClass',type='Point')
-            line_errors = list_datasets.list_datasets(error_output,datatype='FeatureClass',type='Polyline')
-            point_total,line_total = get_total_errors(point_errors,line_errors,error_output)
-            arcpy.AddMessage('Total topology errors: {0} point errors, {1} line errors'.format(point_total,line_total))
+            dem_fill = fill_DEM(main_raster,name,tile,dem_filled_out)
         except Exception as e:
-            arcpy.AddWarning("Encountered error while reporting number of topology errors: {0}".format(e))
-            raise e
+            arcpy.AddWarning("Encountered error while filling DEM: {0}".format(e))
+            continue
+        
+        #reset processing extent to full dataset
+        arcpy.env.extent = dem.extent
+        
+        #execute filled contour creation using filled DEM
+        arcpy.AddMessage('Creating filled contours...')
+        try:
+            contour_fill = create_filled_contours(dem_fill,contours_fill_out)
+        except Exception as e:
+            arcpy.AddWarning('Encountered problem with raster dataset: {0}. Possible empty dataset and can be ignored.'.format(e))
+            continue
 
-        arcpy.AddMessage("Final contour datasets successfully created.")
-    except:
-        arcpy.AddMessage("Contour creation did not complete successfully:{0}".format(arcpy.GetMessages()))
+        #execute contour creation using buffered tile as processing extent
+        arcpy.AddMessage('Creating normal contours...' )
+        try:
+            contour_raw = create_contours(main_raster,name,tile,contours_raw_out)
+        except Exception as e:
+            arcpy.AddWarning("Encountered error while creating normal contours: {0}".format(e))
+            continue
+        
+        # add contour type field
+        try:
+            arcpy.AddField_management(contour_raw,'Type','TEXT')
+        except Exception as e:
+            arcpy.AddWarning("Encountered error adding new field to contour feature class: {0}".format(e))
+            continue
+
+        #reset processing extent to full dataset
+        arcpy.env.extent = dem.extent
+
+        #execute attribute update
+        arcpy.AddMessage('Deleting short contours and updating attribute table with index, intermediate and depression values...')
+        try:
+            att_contours(contour_raw,contour_fill)
+        except Exception as e:
+            arcpy.AddWarning("Encountered problem while updating attribute table: {0}".format(e))
+            continue
+
+        #execute smooth lines
+        arcpy.AddMessage('Smoothing contours...')
+        try:
+            contour_smoothed = smooth_lines(contour_raw,contours_smooth_out)
+        except Exception as e:
+            arcpy.AddWarning("Encountered problem while smoothing contours: {0}".format(e))
+            continue
+
+        # execute final clip
+        arcpy.AddMessage('Executing final clip to remove edge effects...')
+        clip_fc = tiles[name]
+        try:
+            contour_clipped = clip_fcs(contour_smoothed,clip_fc,name,contours_final_out)
+        except Exception as e:
+            arcpy.AddWarning("Encountered error while clipping: {0}".format(e))
+            continue
+
+        # clear in_memory workspace
+        arcpy.Delete_management("in_memory")
+
+        #run topology and export errors
+        arcpy.AddMessage('Creating topology and validating...')
+        try:
+            create_topology(contour_clipped,topo_output,rule,error_output)
+        except Exception as e:
+            arcpy.AddWarning("Encountered error while creating topology: {0}".format(e))
+            continue
+
+    #merge errors, and get total error count
+    ## TODO: export errors to in_memory workspace after creating topology. keep track of paths in lists. iterate through error list to merge only
+    ## line errors and point errors
+    try:
+        arcpy.AddMessage('Merging point errors and getting total count...')
+        point_errors = list_datasets.list_datasets(error_output,datatype='FeatureClass',type='Point')
+        line_errors = list_datasets.list_datasets(error_output,datatype='FeatureClass',type='Polyline')
+        point_total,line_total = get_total_errors(point_errors,line_errors,error_output)
+        arcpy.AddMessage('Total topology errors: {0} point errors, {1} line errors'.format(point_total,line_total))
+    except Exception as e:
+        arcpy.AddWarning("Encountered error while reporting number of topology errors: {0}".format(e))
+
+    arcpy.AddMessage("Final contour datasets successfully created.")
+##    except arcpy.ExecuteError as e:
+##        arcpy.AddMessage("Encountered geoprocessing error:{0}".format(e))
+##        pass
+##    except Exception as e:
+##        arcpy.AddMessage("Encountered other error".format(e))
+##        pass
         
 
 
