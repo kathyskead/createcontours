@@ -5,7 +5,6 @@ import shutil
 ##import multiprocessing
 import itertools
 import time
-import list_datasets
 
 
 ###stand-alone script variables. This script can be used a stand-alone program by setting the following variables.
@@ -101,7 +100,31 @@ labels = 'NO_LABELS'
 template = '#'
 geometry_type = 'POLYGON'
 
+# helper function to list datasets
+def list_datasets(self, location, datatype=None, subtype=None, exclusion=None):
+    ''' (str[,datatype = str[,type = str][,exclusion = str]) -> list
+    Takes an input string of the directory (or workspace)
+    containing the datasets and recursively returns all filepaths into a list.
+    Optional datatype,subtype and exlusion args can be set to limit the results.
+    If you want to exclude a folder, set the 'exclusion' parameter to the directory name (or list of names).
+    You may also set 'datatype' and 'type' parameters according to the arcpy.da.Walk syntax (http://resources.arcgis.com/EN/HELP/MAIN/10.2/index.html#//018w00000023000000")
 
+
+    >>> get_features("C:/workspace",datatype = "FeatureClass",type = "Polygon",exclusions = "Projected")
+    >>> [list of all polygon feature classes in 'C:/workspace', excluding all those in a subdirectory named "Projected"]
+    '''
+    result = []
+    if exclusion:
+        for dirpath,dirnames,files in arcpy.da.Walk(location,datatype = datatype,type = subtype):
+            if exclusion in dirnames:
+                dirnames.remove(exclusion)
+            for filename in files:
+                result.append(os.path.join(dirpath,filename))
+    else:
+        for dirpath,dirnames,files in arcpy.da.Walk(location,datatype = datatype,type = subtype):
+            for filename in files:
+                result.append(os.path.join(dirpath,filename))
+    return result
 
 def create_fishnet(number_columns,number_rows):
     '''(str,str) -> output shapefile "fishnet.shp"
@@ -120,20 +143,6 @@ def create_fishnet(number_columns,number_rows):
             row = (oid,'Tile_{0:02d}'.format(oid))
             cursor.updateRow(row)
     return fishnet_out
-
-
-##def get_footprint(inras):
-##        arcpy.RasterDomain_3d(inras,"in_memory","POLYGON")
-##        extent = arcpy.Describe(output).extent
-##        array = arcpy.Array()
-##        array.add(extent.lowerLeft)
-##        array.add(extent.lowerRight)
-##        array.add(extent.upperRight)
-##        array.add(extent.upperLeft)
-##        footprint = arcpy.Polygon(array)
-##        return footprint
-
-
 
 
 def get_final_tiles(fishnet_out):
@@ -220,7 +229,7 @@ def create_filled_contours(inras,output_dir):
     Outputs shapefile with prefix "Fill" according to the name of the input raster and output_dir parameter.
     Returns output path string.
     '''
-##    arcpy.env.extent = arcpy.sa.Raster(inras).extent
+
     name = 'Fill_{0}'.format(os.path.splitext(os.path.basename(inras))[0])
     output = os.path.join(output_dir,name)
     arcpy.sa.Contour(inras,output,2,0)
@@ -235,7 +244,7 @@ def att_contours(fc,filled):
     filled contours. These are the depression contours.
     Returns none.
     '''
-##    arcpy.env.extent = arcpy.Describe(fc).extent
+
     expression = 'getType(!Contour!,!Type!)'
     codeblock = """def getType(con,typ):
         if con % 10 == 0 and typ == 'Depression':
@@ -278,7 +287,7 @@ def smooth_lines(fc,output_dir):
     Saves output prefixed with "Smooth" to output_dir.
     Returns output path string.
     '''
-##    arcpy.env.extent = dem.extent
+
     name = 'Smooth_{0}'.format(os.path.basename(fc))
     output = os.path.join(output_dir,name)
     arcpy.cartography.SmoothLine(fc,output,smoothing_method,tolerance)
@@ -298,7 +307,7 @@ def clip_fcs(fc,clip_fc,name,output_dir):
     Saves output with "Final" prefix to output_dir.
     Returns output path string.
     '''
-##    arcpy.env.extent = arcpy.Describe(fc).extent
+
     fc_name = 'Final_{0}'.format(name)
     output = os.path.join(output_dir,fc_name)
     arcpy.Clip_analysis(fc,clip_fc,output)
@@ -341,8 +350,6 @@ def get_total_errors(point_errors,line_errors,error_output):
 
 
 def main():
-    #set workspace
-##    arcpy.env.workspace = os.path.split(workspace)[0]
     #set output coord. system
     arcpy.env.outputCoordinateSystem = arcpy.SpatialReference(spatial_ref)
     #set overwrite status
@@ -373,24 +380,8 @@ def main():
 
     #create fishnet tiles and get list of all tiles
     #get fishnet columns and rows
-
     arcpy.AddMessage('Creating fishnet...')
     create_fishnet(number_columns,number_rows)
-
-##    # ensure each tile will mask at least a portion of the data. if not, delete it
-##
-##    arcpy.AddMessage('Checking fishnet coverage...')
-##    try:
-##        footprint = get_footprint(main_raster)
-##    except Exception as e:
-##        print "Footprint generation not successful", e
-##    else:
-##        for row in arcpy.da.UpdateCursor(fishnet_out,['Name','SHAPE@']):
-##            for row2 in arcpy.da.SearchCursor(footprint,['SHAPE@']):
-##                if not row[1].overlaps(row2[0]):
-##                    row.deleteRow()
-##                    arcpy.AddMessage("Deleted empty tile")
-
 
     # initialize feature class lists
     tiles = get_final_tiles(fishnet_out)
@@ -398,8 +389,7 @@ def main():
     point_errors = []
     line_errors = []
 
-                
-##    try:    
+                  
     for name,tile in tiles_buff.iteritems():
         arcpy.AddMessage("Beginning contour processing on {0}...".format(name))
         #execute fill using buffered tile as processing extent
@@ -480,23 +470,16 @@ def main():
     ## line errors and point errors
     try:
         arcpy.AddMessage('Merging point errors and getting total count...')
-        point_errors = list_datasets.list_datasets(error_output,datatype='FeatureClass',type='Point')
-        line_errors = list_datasets.list_datasets(error_output,datatype='FeatureClass',type='Polyline')
+        point_errors = list_datasets(error_output,datatype='FeatureClass',type='Point')
+        line_errors = list_datasets(error_output,datatype='FeatureClass',type='Polyline')
         point_total,line_total = get_total_errors(point_errors,line_errors,error_output)
         arcpy.AddMessage('Total topology errors: {0} point errors, {1} line errors'.format(point_total,line_total))
     except Exception as e:
         arcpy.AddWarning("Encountered error while reporting number of topology errors: {0}".format(e))
 
     arcpy.AddMessage("Final contour datasets successfully created.")
-##    except arcpy.ExecuteError as e:
-##        arcpy.AddMessage("Encountered geoprocessing error:{0}".format(e))
-##        pass
-##    except Exception as e:
-##        arcpy.AddMessage("Encountered other error".format(e))
-##        pass
+
         
-
-
         
 if __name__ == '__main__':
     start_time = time.clock()
