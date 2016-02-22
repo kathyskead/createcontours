@@ -470,8 +470,8 @@ def main():
     ## line errors and point errors
     try:
         arcpy.AddMessage('Merging point errors and getting total count...')
-        point_errors = list_datasets(error_output,datatype='FeatureClass',type='Point')
-        line_errors = list_datasets(error_output,datatype='FeatureClass',type='Polyline')
+        point_errors = list_datasets(error_output,datatype='FeatureClass',subtype='Point')
+        line_errors = list_datasets(error_output,datatype='FeatureClass',subtype='Polyline')
         point_total,line_total = get_total_errors(point_errors,line_errors,error_output)
         arcpy.AddMessage('Total topology errors: {0} point errors, {1} line errors'.format(point_total,line_total))
     except Exception as e:
