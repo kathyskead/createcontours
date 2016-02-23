@@ -26,10 +26,11 @@ import time
 workspace = arcpy.GetParameterAsText(0)
 main_raster = arcpy.GetParameterAsText(1)
 buffer_dist = float(arcpy.GetParameterAsText(2))
-smoothing_method = arcpy.GetParameterAsText(3)
-tolerance = arcpy.GetParameterAsText(4)
-number_columns = arcpy.GetParameterAsText(5)
-number_rows = arcpy.GetParameterAsText(6)
+contour_interval = float(arcpy.GetParameterAsText(3))
+smoothing_method = arcpy.GetParameterAsText(4)
+tolerance = arcpy.GetParameterAsText(5)
+number_columns = arcpy.GetParameterAsText(6)
+number_rows = arcpy.GetParameterAsText(7)
 
 if smoothing_method == 'BEZIER_INTERPOLATION':
     tolerance = 0
@@ -39,6 +40,7 @@ arcpy.AddMessage('System version: {0}'.format(sys.version))
 arcpy.AddMessage('Workspace geodatabase: {0}'.format(workspace))
 arcpy.AddMessage('Input DEM: {0}'.format(main_raster))
 arcpy.AddMessage('Processing Buffer: {0}'.format(buffer_dist))
+arcpy.AddMessage('Contour Interval: {0}'.format(contour_interval))
 arcpy.AddMessage('Smoothing Method: {0}'.format(smoothing_method))
 arcpy.AddMessage('Smoothing Tolerance: {0}'.format(tolerance))
 arcpy.AddMessage('Fishnet Columns: {0}'.format(number_columns))
@@ -210,7 +212,7 @@ def fill_DEM(inras,name,tile,output_dir):
     return output
 
 
-def create_contours(inras,name,tile,output_dir):
+def create_contours(inras,name,tile,output_dir,contour_interval):
     ''' (raster,string,polygon object,path string)->output path string
     Sets processing extent to polygon object extent.
     Executes Contour geoprocess on raster dataset.
@@ -220,10 +222,10 @@ def create_contours(inras,name,tile,output_dir):
     arcpy.env.extent = tile.extent
     arcpy.env.snapRaster = inras
     output = os.path.join(output_dir,name)
-    arcpy.sa.Contour(inras,output,2,0)
+    arcpy.sa.Contour(inras,output,contour_interval,0)
     return output
 
-def create_filled_contours(inras,output_dir):
+def create_filled_contours(inras,output_dir,contour_interval):
     ''' (raster,path string) -> output path string
     Executes Contour geoprocess on raster dataset.
     Outputs shapefile with prefix "Fill" according to the name of the input raster and output_dir parameter.
@@ -232,7 +234,7 @@ def create_filled_contours(inras,output_dir):
 
     name = 'Fill_{0}'.format(os.path.splitext(os.path.basename(inras))[0])
     output = os.path.join(output_dir,name)
-    arcpy.sa.Contour(inras,output,2,0)
+    arcpy.sa.Contour(inras,output,contour_interval,0)
     return output
 
 
@@ -406,7 +408,7 @@ def main():
         #execute filled contour creation using filled DEM
         arcpy.AddMessage('Creating filled contours...')
         try:
-            contour_fill = create_filled_contours(dem_fill,contours_fill_out)
+            contour_fill = create_filled_contours(dem_fill,contours_fill_out,contour_interval)
         except Exception as e:
             arcpy.AddWarning('Encountered problem with raster dataset: {0}. Possible empty dataset and can be ignored.'.format(e))
             continue
@@ -414,7 +416,7 @@ def main():
         #execute contour creation using buffered tile as processing extent
         arcpy.AddMessage('Creating normal contours...' )
         try:
-            contour_raw = create_contours(main_raster,name,tile,contours_raw_out)
+            contour_raw = create_contours(main_raster,name,tile,contours_raw_out,contour_interval)
         except Exception as e:
             arcpy.AddWarning("Encountered error while creating normal contours: {0}".format(e))
             continue
