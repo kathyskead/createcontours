@@ -103,7 +103,7 @@ template = '#'
 geometry_type = 'POLYGON'
 
 # helper function to list datasets
-def list_datasets(self, location, datatype=None, subtype=None, exclusion=None):
+def list_datasets(location, datatype=None, subtype=None, exclusion=None):
     ''' (str[,datatype = str[,type = str][,exclusion = str]) -> list
     Takes an input string of the directory (or workspace)
     containing the datasets and recursively returns all filepaths into a list.
