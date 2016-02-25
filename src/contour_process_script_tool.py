@@ -277,6 +277,7 @@ def att_contours(fc,filled):
     arcpy.SelectLayerByAttribute_management('contour_lyr','CLEAR_SELECTION')
 ##    arcpy.AddMessage("Claculate field to attribute contour types")
     arcpy.CalculateField_management('contour_lyr','Type',expression,'PYTHON_9.3',codeblock)
+    arcpy.DeleteField_management('contour_lyr','Length')
     arcpy.Delete_management('contour_lyr')
     return None
 
